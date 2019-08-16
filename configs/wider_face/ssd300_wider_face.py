@@ -48,17 +48,15 @@ dataset_type = 'WIDERFaceDataset'
 data_root = 'data/WIDERFace/'
 img_norm_cfg = dict(mean=[123.675, 116.28, 103.53], std=[1, 1, 1], to_rgb=True)
 data = dict(
-    imgs_per_gpu=60,
+    imgs_per_gpu=50,
     workers_per_gpu=2,
     train=dict(
         type='RepeatDataset',
         times=2,
         dataset=dict(
             type=dataset_type,
-            ann_file=[
-                data_root + 'train.txt',
-            ],
-            img_prefix=[data_root + 'WIDER_train/'],
+            ann_file= data_root + '/wider_face_train_annot_mmdet_style.json',
+            img_prefix=data_root + 'WIDER_train/images',
             img_scale=(300, 300),
             min_size=17,  # throw away very small faces to improve training,
             # because 300x300 is too low resolution to detect them
@@ -84,8 +82,8 @@ data = dict(
             resize_keep_ratio=False)),
     val=dict(
         type=dataset_type,
-        ann_file=data_root + '/val.txt',
-        img_prefix=data_root + 'WIDER_val/',
+        ann_file= data_root + '/wider_face_val_annot_mmdet_style.json',
+        img_prefix=data_root + 'WIDER_val/images',
         img_scale=(300, 300),
         img_norm_cfg=img_norm_cfg,
         size_divisor=None,
@@ -122,7 +120,7 @@ log_config = dict(
     interval=1,
     hooks=[
         dict(type='TextLoggerHook'),
-        dict(type='TensorboardLoggerHook')
+        # dict(type='TensorboardLoggerHook')
     ])
 # yapf:enable
 # runtime settings
