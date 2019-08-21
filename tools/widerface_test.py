@@ -17,6 +17,7 @@ def parse_args():
         choices=['proposal', 'proposal_fast', 'bbox', 'segm', 'keypoints'],
         help='eval types')
     parser.add_argument('--show', action='store_true', help='show results')
+    parser.add_argument('--load', action='store_true', help='load results for evaluation')
     parser.add_argument('--tmpdir', help='tmp dir for writing some results')
     parser.add_argument(
         '--launcher',
@@ -77,21 +78,22 @@ def main():
     else:
         model.CLASSES = dataset.CLASSES
 
-    if not distributed:
-        model = MMDataParallel(model, device_ids=[0])
-        outputs = single_gpu_test(model, data_loader, args.show)
+    if not args.load:
+        if not distributed:
+            model = MMDataParallel(model, device_ids=[0])
+            outputs = single_gpu_test(model, data_loader, args.show)
+        else:
+            model = MMDistributedDataParallel(model.cuda())
+            outputs = multi_gpu_test(model, data_loader, args.tmpdir)
+
+        rank, _ = get_dist_info()
+        if args.out and rank == 0:
+            print('\nwriting results to {}'.format(args.out))
+            mmcv.dump(outputs, args.out)
     else:
-        model = MMDistributedDataParallel(model.cuda())
-        outputs = multi_gpu_test(model, data_loader, args.tmpdir)
+        outputs=mmcv.load(args.out)
 
-    rank, _ = get_dist_info()
-    if args.out and rank == 0:
-        print('\nwriting results to {}'.format(args.out))
-        mmcv.dump(outputs, args.out)
-
-    if args.submission_outdir:
-        if not os.path.isdir(args.submission_outdir):
-            os.makedirs(args.submission_outdir)
+    if args.submission_outdir is not None:
         if not isinstance(outputs[0], dict):
             result2submission(dataset, outputs, args.submission_outdir)
         else:
@@ -100,8 +102,30 @@ def main():
                 result_file = args.submission_outdir + '.{}'.format(name)
                 result2submission(dataset, outputs_, result_file)
 
-def result2submission(dataset, outputs, sub_dir):
-    raise NotImplementedError
+def result2submission(dataset, outputs, sub_dir, score_thres=0.3):
+    img_infos = dataset.img_infos
+    assert len(img_infos) == len(outputs)
+    for info, out in zip(img_infos, outputs):
+        out_folder, out_fn = os.path.split(info['filename'])
+        header = out_fn[:-4]
+        out_folder = os.path.join(sub_dir, out_folder)
+        out_fn = osp.join(out_folder, out_fn[:-3]+'txt')
+        print('writing ' + out_fn)
+        if not os.path.isdir(out_folder): os.makedirs(out_folder, exist_ok=True)
+        res = out[0]
+        res = res[res[:,-1]>score_thres]
+        n_faces = len(res)
+        with open(out_fn, 'w') as f:
+            f.write(header +'\n')
+            f.write(str(n_faces) + '\n')
+            
+            if n_faces>0:
+                for r in res:
+                    f.write('{:.2f} {:.2f} {:.2f} {:.2f} {:.3f}\n'.format(*r.tolist()))
+            else:
+                f.write('0 0 0 0 0\n')
+            f.write('\n')
+
 
 if __name__ == '__main__':
     main()
