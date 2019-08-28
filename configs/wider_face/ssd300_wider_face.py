@@ -85,27 +85,64 @@ test_pipeline = [
         ])
 ]
 data = dict(
-    imgs_per_gpu=60,
+    imgs_per_gpu=50,
     workers_per_gpu=2,
     train=dict(
         type='RepeatDataset',
         times=2,
         dataset=dict(
             type=dataset_type,
-            ann_file=data_root + 'train.txt',
-            img_prefix=data_root + 'WIDER_train/',
-            min_size=17,
-            pipeline=train_pipeline)),
+
+            ann_file= data_root + '/wider_face_train_annot_mmdet_style.json',
+            img_prefix=data_root + 'WIDER_train/images',
+            img_scale=(300, 300),
+            min_size=17,  # throw away very small faces to improve training,
+            # because 300x300 is too low resolution to detect them
+            img_norm_cfg=img_norm_cfg,
+            size_divisor=None,
+            flip_ratio=0.5,
+            with_mask=False,
+            with_crowd=False,
+            with_label=True,
+            test_mode=False,
+            extra_aug=dict(
+                photo_metric_distortion=dict(
+                    brightness_delta=32,
+                    contrast_range=(0.5, 1.5),
+                    saturation_range=(0.5, 1.5),
+                    hue_delta=18),
+                expand=dict(
+                    mean=img_norm_cfg['mean'],
+                    to_rgb=img_norm_cfg['to_rgb'],
+                    ratio_range=(1, 4)),
+                random_crop=dict(
+                    min_ious=(0.1, 0.3, 0.5, 0.7, 0.9), min_crop_size=0.3)),
+            resize_keep_ratio=False)),
     val=dict(
         type=dataset_type,
-        ann_file=data_root + 'val.txt',
-        img_prefix=data_root + 'WIDER_val/',
-        pipeline=test_pipeline),
+        ann_file= data_root + '/wider_face_val_annot_mmdet_style.json',
+        img_prefix=data_root + 'WIDER_val/images',
+        img_scale=(300, 300),
+        img_norm_cfg=img_norm_cfg,
+        size_divisor=None,
+        flip_ratio=0,
+        with_mask=False,
+        with_label=False,
+        test_mode=True,
+        resize_keep_ratio=False),
     test=dict(
         type=dataset_type,
-        ann_file=data_root + 'val.txt',
-        img_prefix=data_root + 'WIDER_val/',
-        pipeline=test_pipeline))
+        ann_file= data_root + '/wider_face_val_annot_mmdet_style.json',
+        img_prefix=data_root + 'WIDER_val/images',
+        img_scale=(300, 300),
+        img_norm_cfg=img_norm_cfg,
+        size_divisor=None,
+        flip_ratio=0,
+        with_mask=False,
+        with_label=False,
+        test_mode=True,
+        resize_keep_ratio=False))
+
 # optimizer
 optimizer = dict(type='SGD', lr=1e-3, momentum=0.9, weight_decay=5e-4)
 optimizer_config = dict()
